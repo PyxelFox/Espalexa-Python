@@ -1,5 +1,5 @@
 ## Espalexa library for python
-This is a port of the [Espalexa]() library (Version 2.3.4) by [@Aircoookie]() for **python 3 only**.
+This is a port of the [Espalexa](https://github.com/Aircoookie/Espalexa) library (Version 2.3.4) by [@Aircoookie](https://github.com/Aircoookie) for **python 3 only**.
 The library covers all functions/features included in the Espalexa library.
 
 #### Installation
