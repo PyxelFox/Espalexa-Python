@@ -79,6 +79,8 @@ espalexaThread.daemon = True    # this makes sure that the espalexa thread gets 
 espalexaThread.start()
 ```
 
+An example is included in the `example.py` file.
+
 #### Changing values manualy
 If you want to change the values of a device by yourself you can do this like this, e.g.:
 ```python
