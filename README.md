@@ -18,6 +18,7 @@ If you want to extend the **default limit of 10 devices** or enable the debug mo
 ```python
 espalexa = Espalexa(MAXDEVICES = 5, DEBUG = True)
 ```
+The DEBUG mode will print all Espalexa actions and exchanges with your Alexa.
 
 Than you want to create some callback functions (every device needs its own function):
 ```python
@@ -42,12 +43,13 @@ def callback(brightness, rgb):
 Add the devices in your main function:
 ```python
 # device WITHOUT color capabilities, e.g.
-espalexa.addDevice("Light without color", callback, False)
+espalexa.addDevice("Light without color", callback, "dimmable")
 
 # device WITH color capabilities, e.g.
-espalexa.addDevice("Light with color", callback, True)
+espalexa.addDevice("Light with color", callback, "extendedcolor")
 ```
-The first argument is a string with the invocation name of the light, the second is a callback function (which will be executed by Espalexa when the status of the device changes), the third is a boolean to enable color capabilities for the device.
+The first argument is a string with the invocation name of the light, the second is a callback function (which will be executed by Espalexa when the status of the device changes), the third is the type of device.
+**NOTE:** There are currently 2 supported device types: dimmable, extendedcolor
 If you want to set an initial brightness (value from 0-255) you have to add an additional argument, e.g.:
 ```python
 espalexa.addDevice("Light with color", callback, True, initialValue = 100)
