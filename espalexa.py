@@ -17,9 +17,9 @@ class EspalexaDevice:
 		self.sat = 0
 		self.hue = 0
 		self.ct = 0
-		self.x = 0
-		self.y = 0
-		self.z = 0
+		self.x = 1
+		self.y = 1
+		self.z = 1
 		self.changed = 0
 		self.id = -1
 		self.colorMode = "xy"
@@ -264,11 +264,9 @@ class Espalexa:
 	def encodeLightId(self, idx):
 		mac = ':'.join(("%012X" % get_mac())[i:i+2] for i in range(0, 12, 2))
 		mac = mac.split(':')
-		print ("Encode: " + str((int("0x" + mac[3], 0) << 20) | (int("0x" + mac[4], 0) << 12) | (int("0x" + mac[5], 0) << 4) | (idx & 0xF)))
 		return (int("0x" + mac[3], 0) << 20) | (int("0x" + mac[4], 0) << 12) | (int("0x" + mac[5], 0) << 4) | (idx & 0xF)		
 		
 	def decodeLightId(self, id):
-		print("Decode: " + str(id & 0xF))
 		return (id & 0xF)
 		
 	#device JSON string: color+temperature device emulates LCT015, dimmable device LWB010, (TODO: on/off Plug 01, color temperature device LWT010, color device LST001)
@@ -296,11 +294,11 @@ class Espalexa:
 		json = json + "\",\"manufacturername\":\"Philips\",\"productname\":\"E" + str(self.getTypeNumber(dev.getType()))
 		json = json + "\",\"uniqueid\":\"" + str(self.encodeLightId(deviceId))
 		json = json + "\",\"swversion\":\"espalexa_python-2.4.3\"}"
-		print(json)
 		return json
 		
 	class httpHandler(BaseHTTPRequestHandler):
-		outer = None	
+		outer = None
+		DEBUG = None	
 		def do_GET(self):
 			path = str(self.path)
 			if (path == "/espalexa"):
@@ -345,6 +343,11 @@ class Espalexa:
 				content_len = int(self.headers.get('Content-Length', 0))
 				post_body = self.rfile.read(content_len)
 				self.outer.handleAlexaApiCall(path, post_body.decode('utf-8'), self)
+				
+		def log_message(self, format, *args):
+			if (self.outer.DEBUG):
+				print("%s - - [%s] %s\n" % (self.client_address[0], self.log_date_time_string(), format%args))
+			return
 			
 	def servePage(self, handler):
 		if (self.DEBUG):
@@ -490,24 +493,26 @@ class Espalexa:
 			print(body)
 		if (req.find("api") < 0):
 			return False	#return if not an API call	
-		print("- Is API call")
 		if (self.DEBUG):
+			print("- Is API call")
 			print("Ok")
 			
 		if (body.find("devicetype") > 0): #client wants a hue api username, we dont care and give static			
 			if (self.DEBUG):
 				print("devType")
-			print("-! USERNAME REQUEST")
+				print("-! USERNAME REQUEST")
 			body = "";
 			handler.send_response(200)
 			handler.send_header('Content-type', 'application/json')
 			handler.end_headers()
 			handler.wfile.write(("[{\"success\":{\"username\": \"2WLEDHardQrI3WHYTHoMcXHgEspsM8ZZRpSKtBQr\"}}]").encode('utf-8'))
 			return True
-		print("- Checked USERNAME request")
+		if (self.DEBUG):
+			print("- Checked USERNAME request")
 			
 		if (req.find("state") > 0): #client wants to control light
-			print("-! CONTROL REQUEST")
+			if (self.DEBUG):
+				print("-! CONTROL REQUEST")
 			handler.send_response(200)
 			handler.send_header('Content-type', 'application/json')
 			handler.end_headers()
@@ -546,11 +551,13 @@ class Espalexa:
 				self.devices[devId].setPropertyChanged(5)
 			self.devices[devId].doCallback()
 			return True
-		print("- Checked CONTROL request")
+		if (self.DEBUG):
+			print("- Checked CONTROL request")
 		
 		pos = req.find("lights")
 		if (pos > 0): #client wants light info
-			print("-! LIGHTS REQUEST")
+			if (self.DEBUG):
+				print("-! LIGHTS REQUEST")
 			tempDeviceId = req[(pos + 7):]
 			if (tempDeviceId == ''):	#python won't convert '' into 0
 				tempDeviceId = 0
@@ -587,12 +594,14 @@ class Espalexa:
 					handler.end_headers()
 					handler.wfile.write(self.deviceJsonString(devId).encode('utf-8'))
 			return True
-		print("- Checked LIGHTS request")
+		if (self.DEBUG):
+			print("- Checked LIGHTS request")
 		handler.send_response(200)
 		handler.send_header('Content-type', 'application/json')
 		handler.end_headers()
 		handler.wfile.write(("{}").encode('utf-8'))
-		print("- ERROR")
+		if (self.DEBUG):
+			print("- ERROR")
 		return True
 	
 	def getEscapedMac(self):
