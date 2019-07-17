@@ -6,11 +6,14 @@ from espalexa import Espalexa
 # create a espalexa object
 espalexa = Espalexa()
 
+# callback function for dimmable device
 def callback(brightness):
 	print("Brightness: " + str(brightness))
 
+# callback function for color device
 def callback_color(brightness, rgb):
 	print("Brightness: " + str(brightness))
+	print(rgb)
 	print("Red: " + str((rgb >> 16) & 0xFF) + ", Green: " + str((rgb >> 8) & 0xFF) + ", Blue: " + str(rgb & 0xFF))
 		
 def loop(espalexa):
@@ -20,8 +23,8 @@ def loop(espalexa):
 			
 if __name__ == "__main__":
 	# add devices
-	espalexa.addDevice("Light without color", callback, False)
-	espalexa.addDevice("Light with color", callback_color, True)
+	espalexa.addDevice("Light without color", callback, "dimmable")
+	espalexa.addDevice("Light with color", callback_color, "extendedcolor")
 	
 	# initialize espalexa
 	espalexa.begin()	

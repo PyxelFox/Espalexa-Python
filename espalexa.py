@@ -8,25 +8,33 @@ import time
 import datetime
 
 class EspalexaDevice:
-	def __init__(self, deviceName, gnCallback, hasColor, initialValue = 0):
+	def __init__(self, deviceName, gnCallback, deviceType, initialValue = 0):
 		self.deviceName = deviceName
 		self.callback = gnCallback
 		self.val = initialValue
 		self.val_last = self.val
-		self.hasColor = hasColor
+		self.deviceType = deviceType	# dimmable, color
 		self.sat = 0
 		self.hue = 0
 		self.ct = 0
+		self.x = 0
+		self.y = 0
+		self.z = 0
 		self.changed = 0
-
-	def isColorDevice(self):
-		return self.hasColor
-		
-	def isColorTemperatureMode(self):
-		return bool(self.ct)
+		self.id = -1
+		self.colorMode = "xy"
 		
 	def getName(self):
-		return self.deviceName
+		return self.deviceName		
+		
+	def getId(self):
+		return self.id
+
+	def getColorMode(self):
+		return self.colorMode
+		
+	def getType(self):
+		return self.deviceType	
 		
 	def getLastChangedProperty(self):
 		return self.changed
@@ -34,21 +42,42 @@ class EspalexaDevice:
 	def getValue(self):
 		return self.val
 		
+	def getPercent(self):
+		perc = self.val * 100
+		return int(perc / 255)
+		
+	def getDegrees(self):
+		return self.getPercent()
+		
 	def getHue(self):
 		return self.hue
 		
 	def getSat(self):
 		return self.sat
 		
+	def getX(self):
+		return self.x
+	
+	def getY(self):
+		return self.y
+		
 	def getCt(self):
 		if (self.ct == 0):
 			return 500
 		return self.ct
 		
+	def getKelvin(self):
+		if (self.ct == 0):
+			return 2000
+		return int(1000000 / self.ct)
+		
 	def getColorRGB(self):
 		rgb = []
 		
-		if (self.isColorTemperatureMode()):
+		if (self.colorMode == "none"):
+			return 0
+		
+		if (self.colorMode == "ct"):
 			temp = float(10000/self.ct)
 			r, g, b = (0, 0, 0)
 			
@@ -71,7 +100,7 @@ class EspalexaDevice:
 			g = max(min(g, 255.1), 0.1)
 			b = max(min(b, 255.1), 0.1)
 			rgb = [r, g, b]
-		else: #hue + sat mode
+		elif (self.colorMode == "hs"):
 			h = float(float(self.hue) / 65525.0)
 			s = float(float(self.sat) / 255.0)
 			i = float(math.floor(float(h * 6)))
@@ -92,7 +121,41 @@ class EspalexaDevice:
 				rgb = [t, p, 255]
 			elif switch == 5:
 				rgb = [255, p, q]
+		elif (self.colorMode == "xy"):
+			# Sources:
+			#	https://developers.meethue.com/develop/application-design-guidance/color-conversion-formulas-rgb-to-xy-and-back/#xy-to-rgb-color
+			#	https://github.com/benknight/hue-python-rgb-converter/blob/master/rgbxy/__init__.py
+			Y = self.val
+			X = (Y / self.y) * self.x
+			Z = (Y / self.y) * (1 - self.x - self.y)
+			r = X * 1.656492 - Y * 0.354851 - Z * 0.255038
+			g = -X * 0.707196 + Y * 1.655397 + Z * 0.036152
+			b = X * 0.051713 - Y * 0.121364 + Z * 1.011530
+
+			r, g, b = map(
+				lambda x: (12.92 * x) if (x <= 0.0031308) else ((1.0 + 0.055) * pow(x, (1.0 / 2.4)) - 0.055),
+				[r, g, b]
+			)
+
+			r, g, b = map(lambda x: max(0, x), [r, g, b])
+
+			max_component = max(r, g, b)
+			if max_component > 1:
+				r, g, b = map(lambda x: x / max_component, [r, g, b])
+
+			r, g, b = map(lambda x: int(x * 255), [r, g, b])
+			rgb = [r, g, b]
 		return ((int(rgb[0]) << int(16)) | (int(rgb[1]) << int(8)) | (int(rgb[2])))
+		
+	def getR():
+		return (getColorRGB() >> 16) & 0xFF
+	
+	def getG():
+		return (getColorRGB() >> 8) & 0xFF
+		
+	def getB():
+		return getColorRGB() & 0xFF
+		
 		
 	def getLastValue(self):
 		if (self.val_last == 0):
@@ -102,6 +165,9 @@ class EspalexaDevice:
 	def setPropertyChanged(self, p):
 		#0: initial 1: on 2: off 3: bri 4: col 5: ct
 		self.changed = p
+		
+	def setID(self, nID):
+		self.id = nID
 		
 	def setName(self, name):
 		self.deviceName = name
@@ -120,16 +186,31 @@ class EspalexaDevice:
 			val = 255
 		self.setValue(val)
 		
+	def setColorXY(self, x, y):
+		self.x = x
+		self.y = y
+		
+		self.colorMode = "xy"
+		
 	def setColor(self, hue, sat):
 		self.hue = hue
 		self.sat = sat
-		self.ct = 0
+		self.colorMode = "hs"
 		
 	def setColorCT(self, ct):
 		self.ct = ct
+		self.colorMode = "ct"
+		
+	def setColorRGB(self, r, g, b):
+		x = r * 0.664511 + g * 0.154324 + b * 0.162028
+		y = r * 0.283881 + g * 0.668433 + b * 0.047685
+		z = r * 0.000088 + g * 0.072310 + b * 0.986039
+		self.x = (x + y + z)
+		self.y = (x + y + z)
+		self.colorMode = "xy"
 		
 	def doCallback(self):
-		if (self.hasColor):
+		if (self.deviceType == "extendedcolor"):
 			self.callback(self.val, self.getColorRGB())
 		else:
 			self.callback(self.val)
@@ -146,35 +227,76 @@ class Espalexa:
 		self.MAXDEVICES = MAXDEVICES
 		self.DEBUG = DEBUG
 		
+	def getTypeNumber(self, s):
+		if (s == "onoff"):
+			return 0
+		if (s == "dimmable"):
+			return 1
+		if (s == "whitespectrum"):
+			return 2
+		if (s == "color"):
+			return 3
+		if (s == "extendedcolor"):
+			return 4
+	
+	def getTypeString(self, s):
+		if (s == "dimmable"):
+			return "Dimmable Light"
+		if (s == "whitespectrum"):
+			return "Color temperature light"
+		if (s == "color"):
+			return "Color light"
+		if (s == "extendedcolor"):
+			return "Extended color light"
+		return "Light"
+			
+	def getModeIDString(self, s):
+		if (s == "dimmable"):
+			return "LWB010"
+		if (s == "whitespectrum"):
+			return "LWT010"
+		if (s == "color"):
+			return "LST001"
+		if (s == "extendedcolor"):
+			return "LCT015"
+		return "Plug"
+		
+	def encodeLightId(self, idx):
+		mac = ':'.join(("%012X" % get_mac())[i:i+2] for i in range(0, 12, 2))
+		mac = mac.split(':')
+		print ("Encode: " + str((int("0x" + mac[3], 0) << 20) | (int("0x" + mac[4], 0) << 12) | (int("0x" + mac[5], 0) << 4) | (idx & 0xF)))
+		return (int("0x" + mac[3], 0) << 20) | (int("0x" + mac[4], 0) << 12) | (int("0x" + mac[5], 0) << 4) | (idx & 0xF)		
+		
+	def decodeLightId(self, id):
+		print("Decode: " + str(id & 0xF))
+		return (id & 0xF)
+		
 	#device JSON string: color+temperature device emulates LCT015, dimmable device LWB010, (TODO: on/off Plug 01, color temperature device LWT010, color device LST001)
 	def deviceJsonString(self, deviceId):
 		if (deviceId < 1) or (deviceId > self.currentDeviceCount):
 			return "{}"
 		dev = self.devices[deviceId - 1]
-		json = "{\"type\":\""
-		if dev.isColorDevice():
-			json = json + "Extended color light"
-		else:
-			json = json + "Dimmable light"
-		json = json + "\",\"manufacturername\":\"OpenSource\",\"swversion\":\"0.1\",\"name\":\""
-		json = json + dev.getName()
-		mac = ':'.join(("%012X" % get_mac())[i:i+2] for i in range(0, 12, 2))
-		json = json + "\",\"uniqueid\":\"" + mac + "-" + str(deviceId + 1)
-		json = json + "\",\"modelid\":\""
-		if dev.isColorDevice():
-			json = json + "LCT015"
-		else:
-			json = json + "LWB010"
-		json = json + "\",\"state\":{\"on\":"
-		json = json + str(dev.getValue()) + ",\"bri\":" + str(dev.getLastValue() - 1)
-		if dev.isColorDevice():
-			json = json + ",\"xy\":[0.00000,0.00000],\"colormode\":\"";
-			if dev.isColorTemperatureMode():
-				json = json + "ct"
-			else:
-				json = json + "hs"
-			json += "\",\"effect\":\"none\",\"ct\":" + str(dev.getCt()) + ",\"hue\":" + str(dev.getHue()) + ",\"sat\":" + str(dev.getSat());
-		json = json + ",\"alert\":\"none\",\"reachable\":true}}"
+		
+		json = "{\"state\":{\"on\":"
+		json = json + str(bool(dev.getValue())).lower()
+		if not (dev.getType() == "onoff"):
+			json = json + ",\"bri\":" + str(dev.getLastValue() - 1)
+			if (dev.getType() == "color") or (dev.getType() == "extendedcolor"):
+				json = json + ",\"hue\":" + str(dev.getHue()) + ",\"sat\":" + str(dev.getSat())
+				json = json + ",\"effect\":\"none\",\"xy\":[" + str(dev.getX()) + "," + str(dev.getY()) + "]"
+			if ((dev.getType() == "whitespectrum") or (dev.getType() == "extendedcolor")) and not (dev.getType() == "color"):
+				json = json + ",\"ct\":" + str(dev.getCt())
+		json = json + ",\"alert\":\"none"
+		if (dev.getType() == "whitespectrum") or (dev.getType() == "color") or (dev.getType() == "extendedcolor"):
+			json = json + "\",\"colormode\":\"" + str(dev.getColorMode())
+		json = json + "\",\"mode\":\"homeautomation\",\"reachable\":true},"
+		json = json + "\"type\":\"" + self.getTypeString(dev.getType())
+		json = json + "\",\"name\":\"" + dev.getName()	
+		json = json + "\",\"modelid\":\"" + self.getModeIDString(dev.getType())
+		json = json + "\",\"manufacturername\":\"Philips\",\"productname\":\"E" + str(self.getTypeNumber(dev.getType()))
+		json = json + "\",\"uniqueid\":\"" + str(self.encodeLightId(deviceId))
+		json = json + "\",\"swversion\":\"espalexa_python-2.4.3\"}"
+		print(json)
 		return json
 		
 	class httpHandler(BaseHTTPRequestHandler):
@@ -216,13 +338,24 @@ class Espalexa:
 				content_len = int(self.headers.get('Content-Length', 0))
 				post_body = self.rfile.read(content_len)
 				self.outer.handleAlexaApiCall(path, post_body.decode('utf-8'), self)
+				
+		def do_POST(self):
+			path = str(self.path)
+			if (path.startswith("/api")):
+				content_len = int(self.headers.get('Content-Length', 0))
+				post_body = self.rfile.read(content_len)
+				self.outer.handleAlexaApiCall(path, post_body.decode('utf-8'), self)
 			
 	def servePage(self, handler):
 		if (self.DEBUG):
 			print("HTTP Req espalexa...")
 		res = "Hello from Espalexa!\r\n\r\n"
 		for i in range(self.currentDeviceCount):
-			res = res + "Value of device " + str(i + 1) + " (" + self.devices[i].getName() + "): " + str(self.devices[i].getValue()) + "\r\n"
+			res = res + "Value of device " + str(i + 1) + " (" + self.devices[i].getName() + "): " + str(self.devices[i].getValue()) + " (" + self.getTypeString(devices[i].getType())
+			if (devices[i].getType() == "whitespace") or (devices[i].getType() == "color") or (devices[i].getType() == "extendedcolor"):
+				res = res + ", colormode=" + str(dev.getColorMode()) + ", r=" + str(dev.getR()) + ", g=" + str(dev.getG()) + ", b=" + str(dev.getB())
+				res = res + ", ct=" + str(dev.getCt()) + ", hue=" + str(dev.getHue()) + ", sat=" + str(dev.getSat()) + ", x=" + str(dev.getX()) + ", y=" + str(dev.getY())
+			res = res + "\r\n"
 		t = datetime.datetime.now() - self.startTime
 		t = t.total_seconds()
 		td = divmod(t, 86400)
@@ -232,6 +365,7 @@ class Espalexa:
 		#TO-DO: add uptime here
 		res += "\r\nUptime: %d days, %d hours, %d minutes and %d seconds" % (td[0], th[0], tm[0], ts[0])
 		res += "\r\n\r\nEspalexa library v2.3.4 by Christian Schwinne 2019"
+		res += "\r\nPython port by Sebastian Scheibe"
 		handler.send_response(200)
 		handler.send_header('Content-type', 'text/plain')
 		handler.end_headers()
@@ -257,15 +391,6 @@ class Espalexa:
 		  <serialNumber>%s</serialNumber>
 		  <UDN>uuid:2f402f80-da50-11e1-9b23-%s</UDN>
 		  <presentationURL>index.html</presentationURL>
-		  <iconList>
-			<icon>
-			  <mimetype>image/png</mimetype>
-			  <height>48</height>
-			  <width>48</width>
-			  <depth>24</depth>
-			  <url>hue_logo_0.png</url>
-			</icon>
-		  </iconList>
 		</device>
 		</root>	
 		""" % (str(localIP), str(localIP), hex(get_mac())[2:], hex(get_mac())[2:])
@@ -282,39 +407,6 @@ class Espalexa:
 		tServer = threading.Thread(target = self.server.serve_forever)
 		tServer.daemon = True
 		tServer.start()
-	
-	#called when Alexa sends ON command
-	def alexaOn(self, deviceId):
-		self.devices[deviceId - 1].setValue(self.devices[deviceId - 1].getLastValue())
-		self.devices[deviceId - 1].setPropertyChanged(1)
-		self.devices[deviceId - 1].doCallback()
-
-	#called when Alexa sends OFF command
-	def alexaOff(self, deviceId):
-		self.devices[deviceId - 1].setValue(0)
-		self.devices[deviceId - 1].setPropertyChanged(2)
-		self.devices[deviceId - 1].doCallback()
-
-	#called when Alexa sends BRI command
-	def alexaDim(self, deviceId, briL):
-		if (briL == 255):
-			self.devices[deviceId - 1].setValue(255)
-		else:
-			self.devices[deviceId - 1].setValue(briL + 1)
-		self.devices[deviceId - 1].setPropertyChanged(3)
-		self.devices[deviceId - 1].doCallback()
-		
-	#called when Alexa sends HUE command
-	def alexaCol(self, deviceId, hue, sat):
-		self.devices[deviceId - 1].setColor(hue, sat)
-		self.devices[deviceId - 1].setPropertyChanged(4)
-		self.devices[deviceId - 1].doCallback()
-		
-	#called when Alexa sends CT command (color temperature)
-	def alexaCt(self, deviceId, ct):
-		self.devices[deviceId - 1].setColorCT(ct)
-		self.devices[deviceId - 1].setPropertyChanged(5)
-		self.devices[deviceId - 1].doCallback()
 	
 	#used to get local IP
 	def get_ip(self):
@@ -380,12 +472,14 @@ class Espalexa:
 						print("Responding search req...")
 					self.respondToSearch(request_addr)
 	
-	def addDevice(self, deviceName, callback, hasColor, initialValue = 0):
+	def addDevice(self, deviceName, callback, deviceType, initialValue = 0):
 		if (self.currentDeviceCount >= self.MAXDEVICES):
 			return False
 		if (self.DEBUG):
 			print("Adding device")
-		self.devices.append(EspalexaDevice(deviceName, callback, hasColor, initialValue))
+		dev = EspalexaDevice(deviceName, callback, deviceType, initialValue)
+		dev.setID(self.currentDeviceCount)
+		self.devices.append(dev)
 		self.currentDeviceCount = self.currentDeviceCount + 1
 		return True	
 	
@@ -418,22 +512,39 @@ class Espalexa:
 			handler.send_header('Content-type', 'application/json')
 			handler.end_headers()
 			handler.wfile.write(("[{\"success\":true}]").encode('utf-8'))
-			tempDeviceId = int(req[(req.find("lights") + 7):].split('/')[0])	
+			tempDeviceId = int(req[(req.find("lights") + 7):].split('/')[0])
+			devId = self.decodeLightId(tempDeviceId) - 1				
 			if (self.DEBUG):
 				print("ls" + str(tempDeviceId))
+			if (devId >= self.currentDeviceCount):
+				return True
+			#0: initial 1: on 2: off 3: bri 4: hs 5: ct 6: xy				
+			self.devices[devId].setPropertyChanged(0)
 			if (body.find("false") > 0):
-				self.alexaOff(tempDeviceId)
+				self.devices[devId].setValue(0)
+				self.devices[devId].setPropertyChanged(2)
+				self.devices[devId].doCallback()
 				return True
+			if (body.find("true") > 0):
+				self.devices[devId].setValue(self.devices[devId].getLastValue())
+				self.devices[devId].setPropertyChanged(1)
 			if (body.find("bri") > 0):
-				self.alexaDim(tempDeviceId, int(body[(body.find("bri") + 5):].split('}')[0]))
-				return True
+				briL = int(body[(body.find("bri") + 5):].split('}')[0])
+				if (briL == 255):
+					self.devices[devId].setValue(255)
+				else:
+					self.devices[devId].setValue(briL + 1)
+				self.devices[devId].setPropertyChanged(3)
+			if (body.find("xy") > 0):
+				self.devices[devId].setColorXY(float(body[(body.find("[") + 1):(body.find("[") + 1) + 5]), float(body[(body.find(",0") + 1):(body.find(",0") + 1) + 5]))
+				self.devices[devId].setPropertyChanged(6)
 			if (body.find("hue") > 0):
-				self.alexaCol(tempDeviceId, int(body[(body.find("hue") + 5):]), int(body[(body.find("sat") + 5):]))
-				return True
+				self.devices[devId].setColor(int(body[(body.find("hue") + 5):]), int(body[(body.find("sat") + 5):]))
+				self.devices[devId].setPropertyChanged(4)				
 			if (body.find("ct") > 0):
-				self.alexaCt(tempDeviceId, int(body[(body.find("ct") + 4):].split('}')[0]))
-				return True
-			self.alexaOn(tempDeviceId)
+				self.devices[devId].setColorCT(int(body[(body.find("ct") + 4):]))
+				self.devices[devId].setPropertyChanged(5)
+			self.devices[devId].doCallback()
 			return True
 		print("- Checked CONTROL request")
 		
@@ -453,20 +564,28 @@ class Espalexa:
 					print("lAll")
 				jsonTemp = "{"
 				for i in range(self.currentDeviceCount):
-					jsonTemp = jsonTemp + "\"" + str(i + 1) + "\":"
+					jsonTemp = jsonTemp + "\"" + str(self.encodeLightId(i + 1)) + "\":"
 					jsonTemp = jsonTemp + self.deviceJsonString(i + 1)
 					if (i < self.currentDeviceCount - 1):
 						jsonTemp = jsonTemp + ","
 				jsonTemp = jsonTemp + "}"
+				print (jsonTemp)
 				handler.send_response(200)
 				handler.send_header('Content-type', 'application/json')
 				handler.end_headers()
 				handler.wfile.write(jsonTemp.encode('utf-8'))
 			else:
-				handler.send_response(200)
-				handler.send_header('Content-type', 'application/json')
-				handler.end_headers()
-				handler.wfile.write(self.deviceJsonString(tempDeviceId).encode('utf-8'))
+				devId = self.decodeLightId(tempDeviceId)
+				if (devId > self.currentDeviceCount):
+					handler.send_response(200)
+					handler.send_header('Content-type', 'application/json')
+					handler.end_headers()
+					handler.wfile.write(("{}").encode('utf-8'))
+				else:
+					handler.send_response(200)
+					handler.send_header('Content-type', 'application/json')
+					handler.end_headers()
+					handler.wfile.write(self.deviceJsonString(devId).encode('utf-8'))
 			return True
 		print("- Checked LIGHTS request")
 		handler.send_response(200)
@@ -482,31 +601,3 @@ class Espalexa:
 	def toPercent(self, bri):
 		perc = bri*100
 		return int(perc/255)
-	
-def testCallback(brightness, rgb):
-	print("Brightness: " + str(brightness))
-	print("Red: " + str((rgb >> 16) & 0xFF) + ", Green: " + str((rgb >> 8) & 0xFF) + ", Blue: " + str(rgb & 0xFF))
-		
-def loop(espalexa):
-	while True:
-		espalexa.loop()
-			
-if __name__ == "__main__":
-	espalexa = Espalexa(MAXDEVICES = 5, DEBUG = True)
-	espalexa.addDevice("PythonLight", testCallback, True)
-	espalexa.addDevice("Fernseher", testCallback, True)
-	espalexa.begin()			
-	t = threading.Thread(target = loop, args = (espalexa,))
-	t.daemon = True
-	t.start()
-	while True:
-		print(".")
-		time.sleep(60)
-			
-			
-			
-			
-			
-			
-			
-			
