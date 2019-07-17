@@ -147,14 +147,14 @@ class EspalexaDevice:
 			rgb = [r, g, b]
 		return ((int(rgb[0]) << int(16)) | (int(rgb[1]) << int(8)) | (int(rgb[2])))
 		
-	def getR():
-		return (getColorRGB() >> 16) & 0xFF
+	def getR(self):
+		return ((self.getColorRGB()) >> 16) & 0xFF
 	
-	def getG():
-		return (getColorRGB() >> 8) & 0xFF
+	def getG(self):
+		return ((self.getColorRGB()) >> 8) & 0xFF
 		
-	def getB():
-		return getColorRGB() & 0xFF
+	def getB(self):
+		return (self.getColorRGB()) & 0xFF
 		
 		
 	def getLastValue(self):
@@ -354,11 +354,11 @@ class Espalexa:
 			print("HTTP Req espalexa...")
 		res = "Hello from Espalexa!\r\n\r\n"
 		for i in range(self.currentDeviceCount):
-			res = res + "Value of device " + str(i + 1) + " (" + self.devices[i].getName() + "): " + str(self.devices[i].getValue()) + " (" + self.getTypeString(devices[i].getType())
-			if (devices[i].getType() == "whitespace") or (devices[i].getType() == "color") or (devices[i].getType() == "extendedcolor"):
-				res = res + ", colormode=" + str(dev.getColorMode()) + ", r=" + str(dev.getR()) + ", g=" + str(dev.getG()) + ", b=" + str(dev.getB())
-				res = res + ", ct=" + str(dev.getCt()) + ", hue=" + str(dev.getHue()) + ", sat=" + str(dev.getSat()) + ", x=" + str(dev.getX()) + ", y=" + str(dev.getY())
-			res = res + "\r\n"
+			res = res + "Value of device " + str(i + 1) + " (" + self.devices[i].getName() + "): " + str(self.devices[i].getValue()) + " (" + self.getTypeString(self.devices[i].getType())
+			if (self.devices[i].getType() == "whitespace") or (self.devices[i].getType() == "color") or (self.devices[i].getType() == "extendedcolor"):
+				res = res + ", colormode=" + str(self.devices[i].getColorMode()) + ", r=" + str(self.devices[i].getR()) + ", g=" + str(self.devices[i].getG()) + ", b=" + str(self.devices[i].getB())
+				res = res + ", ct=" + str(self.devices[i].getCt()) + ", hue=" + str(self.devices[i].getHue()) + ", sat=" + str(self.devices[i].getSat()) + ", x=" + str(self.devices[i].getX()) + ", y=" + str(self.devices[i].getY())
+			res = res + ")\r\n"
 		t = datetime.datetime.now() - self.startTime
 		t = t.total_seconds()
 		td = divmod(t, 86400)
