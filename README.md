@@ -114,5 +114,6 @@ Espalexa emulates parts of the SSDP protocol and the Philips hue API, just enoug
 Espalexa only works with a genuine Echo device, it probably wont work with Echo emulators or RPi homebrew devices.
 
 #### Sources
-[Espalexa](https://github.com/Aircoookie/Espalexa) by [@Aircoookie](https://github.com/Aircoookie)
+[Espalexa](https://github.com/Aircoookie/Espalexa) by [@Aircoookie](https://github.com/Aircoookie) 
+
 [hue-python-rgb-converter](https://github.com/benknight/hue-python-rgb-converter) by [@benknight](https://github.com/benknight) (used RGB to XY conversion)
