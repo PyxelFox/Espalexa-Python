@@ -366,8 +366,8 @@ class Espalexa:
 		tm = divmod(th[0], 60)
 		ts = divmod(tm[0], 1)
 		#TO-DO: add uptime here
-		res += "\r\nUptime: %d days, %d hours, %d minutes and %d seconds" % (td[0], th[0], tm[0], ts[0])
-		res += "\r\n\r\nEspalexa library v2.3.4 by Christian Schwinne 2019"
+		#res += "\r\nUptime: %d days, %d hours, %d minutes and %d seconds" % (td[0], th[0], tm[0], ts[0])
+		res += "\r\n\r\nEspalexa library v2.4.3 by Christian Schwinne 2019"
 		res += "\r\nPython port by Sebastian Scheibe"
 		handler.send_response(200)
 		handler.send_header('Content-type', 'text/plain')
