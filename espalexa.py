@@ -547,7 +547,7 @@ class Espalexa:
 				self.devices[devId].setColor(int(body[(body.find("hue") + 5):].split(',')[0]), int(body[(body.find("sat") + 5):].split('}')[0]))
 				self.devices[devId].setPropertyChanged(4)				
 			if (body.find("ct") > 0):
-				self.devices[devId].setColorCT(int(body[(body.find("ct") + 4):]))
+				self.devices[devId].setColorCT(int(body[(body.find("ct") + 4):].split('}')[0]))
 				self.devices[devId].setPropertyChanged(5)
 			self.devices[devId].doCallback()
 			return True
