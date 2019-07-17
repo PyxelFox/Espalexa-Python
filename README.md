@@ -1,5 +1,5 @@
 ## Espalexa library for python
-This is a port of the [Espalexa](https://github.com/Aircoookie/Espalexa) library (Version 2.3.4) by [@Aircoookie](https://github.com/Aircoookie) for **python 3 only**.
+This is a port of the [Espalexa](https://github.com/Aircoookie/Espalexa) library (Version 2.4.3) by [@Aircoookie](https://github.com/Aircoookie) for **python 3 only**.
 The library covers all functions/features included in the Espalexa library.
 
 #### Installation
@@ -112,3 +112,7 @@ Running 20+ devices on a single Raspberry Pi 3 worked perfectly without any issu
 #### How does this work?
 Espalexa emulates parts of the SSDP protocol and the Philips hue API, just enough so it can be discovered and controlled by Alexa.
 Espalexa only works with a genuine Echo device, it probably wont work with Echo emulators or RPi homebrew devices.
+
+#### Sources
+[Espalexa](https://github.com/Aircoookie/Espalexa) by [@Aircoookie](https://github.com/Aircoookie)
+[hue-python-rgb-converter](https://github.com/benknight/hue-python-rgb-converter) by [@benknight](https://github.com/benknight) (used RGB to XY conversion)
